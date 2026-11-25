@@ -15,7 +15,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { boardIssue, buildBoard, dataScript, parseSnapshot } from './lib/model.ts';
+import { analysisMarkdown, boardIssue, buildBoard, dataScript, parseSnapshot } from './lib/model.ts';
 import { buildDossier } from './vendor/makefun-board.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
@@ -69,6 +69,15 @@ function copyFiles(from: string, to: string): string[] {
 
 const pageFiles = copyFiles(join(here, 'dashboard'), join(out, 'dashboard'));
 const shots = copyFiles(join(here, 'screenshots'), join(out, 'screenshots'));
+
+// The written analysis rides inside the dashboard directory, so the dossier
+// the gate rebuilds from this output carries the radar's reasoning (method,
+// fitted ranges, watchlist deep-dives) in the same words the page shows. It
+// is generated here, from the same data as the page, never committed stale.
+if (pageFiles.length > 0) {
+  writeFileSync(join(out, 'dashboard', 'analysis.md'), analysisMarkdown(radar));
+  pageFiles.push('analysis.md');
+}
 
 // The dossier is written last, from the finished output, exactly as the
 // scorer rebuilds it. buildDossier refuses an empty screenshots/ folder, so
