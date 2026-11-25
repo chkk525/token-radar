@@ -13,13 +13,19 @@
       <div class="scope-mark" aria-hidden="true"><span></span></div>
       <div>
         <h1>Launch Scope</h1>
-        <p class="tagline">Pre-token protocols, swept and priced. Every protocol in the snapshot that records no token, ranked by what a launch could be worth if its record held.</p>
+        <p class="tagline">Pre-token protocols, swept and priced — with a range, not false precision. Every protocol in the snapshot that records no token, ranked by what a launch could be worth if its record held, scored for how hard to farm it, and written up one by one.</p>
       </div>
     </div>
     <dl class="stat-strip" id="statStrip"></dl>
   </div>
+  <nav class="viewtabs" aria-label="Views">
+    <button type="button" data-view="board" class="tab active">The board</button>
+    <button type="button" data-view="deep" class="tab">Watchlist deep-dives</button>
+    <button type="button" data-view="method" class="tab">How a price is made</button>
+  </nav>
 </header>
 
+<div id="viewBoard">
 <div class="layout">
   <aside class="rail">
     <section class="rail-block">
@@ -47,6 +53,15 @@
           <option value="250000000">$250M and up</option>
         </select>
       </label>
+      <label class="field">
+        <span>Minimum conviction</span>
+        <select id="fGrade">
+          <option value="0">Any grade</option>
+          <option value="70">A (70+) — farm first</option>
+          <option value="55">B (55+) and up</option>
+          <option value="40">C (40+) and up</option>
+        </select>
+      </label>
       <label class="check">
         <input id="fWatch" type="checkbox">
         <span>Watchlist only (the house floor)</span>
@@ -63,23 +78,23 @@
       <h2>How a price is made</h2>
       <p class="formula">implied = TVL &times; category multiple &times; momentum &times; maturity</p>
       <ul class="method">
-        <li><strong>Multiple.</strong> For each category, the median market-cap / TVL of the protocols that already launched, winsorised to [0.01, 5] and shrunk toward the global median with 8 pseudo-rows of weight, so a thin category borrows the market's evidence instead of inventing its own.</li>
-        <li><strong>Momentum.</strong> 1 + clamp(7-day TVL change, &minus;50%, +100%) &times; 0.5. Unreported change is neutral.</li>
-        <li><strong>Maturity.</strong> 0.5 + 0.5 &times; &radic;(age / 4 years, capped). A protocol with no listing date is read as 365 days old.</li>
-        <li><strong>Launch prior.</strong> The share of a category's protocols that already record a token, shrunk the same way. Context for the farm plan; it never moves the price.</li>
+        <li><strong>Range, not a point.</strong> Each category's multiple is the median of its launched peers' market-cap / TVL, winsorised to [0.01, 5] and shrunk toward the global median with 8 pseudo-rows. The board also quotes the peer quartiles as a low&ndash;high range: the middle half of peers is what a launch plausibly prices inside.</li>
+        <li><strong>Momentum.</strong> 1 + 0.6 &times; tanh(7-day change / 40), bounded so one freak week (this snapshot runs to +4,448%) cannot mint a top row. Unreported change is neutral.</li>
+        <li><strong>Maturity.</strong> 0.45 + 0.55 &times; &radic;(age / 5 years, capped). No listing date is read as 365 days, stated openly.</li>
+        <li><strong>Conviction.</strong> A separate 0&ndash;100 farm score: launch prior 40, TVL scale 20, momentum 15, age in the prime window 15, chain breadth 10. It never moves the price.</li>
       </ul>
-      <p class="rail-note">Fitted from this snapshot alone: <span id="fitNote"></span> Nothing is hardcoded per protocol, and wrapped, staked or bridged products of tokens that already trade are kept off the board.</p>
+      <p class="rail-note">Fitted from this snapshot alone: <span id="fitNote"></span> Nothing is hardcoded per protocol, and wrapped, staked or bridged products of tokens that already trade are kept off the board. Full method: the third view.</p>
     </section>
 
     <section class="rail-block">
       <h2>Fitted multiples</h2>
       <div class="fit-scroll">
         <table class="fit-table" id="fitTable">
-          <thead><tr><th>Category</th><th class="num">Mult.</th><th class="num">Prior</th><th class="num">Peers</th></tr></thead>
+          <thead><tr><th>Category</th><th class="num">Mult.</th><th class="num">Range</th><th class="num">Prior</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
-      <p class="rail-note">Peers = protocols in the category that already record a token. Prior = fitted share of the category that has launched.</p>
+      <p class="rail-note">Range = the fitted peer quartiles. Prior = fitted share of the category that already records a token.</p>
     </section>
   </aside>
 
@@ -95,12 +110,11 @@
             <th data-sort="rank" class="num sortable">Rank</th>
             <th data-sort="name" class="sortable">Protocol</th>
             <th>Category</th>
-            <th>Chains</th>
             <th data-sort="tvl_usd" class="num sortable">TVL</th>
             <th data-sort="change_7d" class="num sortable">7d</th>
             <th data-sort="multiple" class="num sortable">Mult.</th>
-            <th data-sort="launch_prior" class="num sortable">Prior</th>
-            <th data-sort="implied_value_usd" class="num sortable">Implied value</th>
+            <th data-sort="conviction" class="num sortable">Conviction</th>
+            <th data-sort="implied_value_usd" class="num sortable">Implied value (range)</th>
           </tr>
         </thead>
         <tbody id="boardBody"></tbody>
@@ -108,8 +122,55 @@
       <p class="empty" id="emptyState" hidden>No protocol matches this sweep. Loosen a filter — the radar keeps every candidate, the filters are yours.</p>
     </div>
     <footer class="board-foot">
-      <p>Implied value is this board's own claim: what a token could be worth if the protocol's record stayed as it is. It is not a prediction that a token will be issued. Snapshot as of <span id="asOf"></span>; the board covers every watchlist protocol and every other pre-token candidate the snapshot carries at $5M TVL or more.</p>
+      <p>Implied value is this board's own claim: what a token could be worth if the protocol's record stayed as it is. It is not a prediction that a token will be issued, and "records no token" is DefiLlama's record, not proof. Snapshot as of <span id="asOf"></span>; the board covers every watchlist protocol and every other pre-token candidate the snapshot carries at $5M TVL or more.</p>
     </footer>
+  </main>
+</div>
+</div>
+
+<div id="viewDeep" hidden>
+  <main class="deep-wrap">
+    <div class="board-head">
+      <h2>Watchlist deep-dives</h2>
+      <p>The 40 protocols above the house's $50M floor, each written up in full: the thesis, the bull and bear cases, what would change the call, and the farm in one line. In board order.</p>
+    </div>
+    <div id="deepList"></div>
+  </main>
+</div>
+
+<div id="viewMethod" hidden>
+  <main class="deep-wrap">
+    <div class="board-head">
+      <h2>How a price is made — the full method</h2>
+      <p>Every figure on this board re-derives from the sealed snapshot and the formulas below. No protocol name is special-cased; no multiple is hardcoded.</p>
+    </div>
+    <div class="method-grid">
+      <section class="mcard">
+        <h3>1 · The peer evidence</h3>
+        <p>The snapshot's 416 token-bearing protocols are the launches that already happened. For the 128 with both a market cap and a TVL, the raw multiple is mcap / TVL, winsorised into [0.01, 5] — outside that band a ratio measures TVL the token's cap does not belong to (one peer sits at 400x because its token trades against activity counted elsewhere), not a launch price.</p>
+      </section>
+      <section class="mcard">
+        <h3>2 · Category multiples, with a range</h3>
+        <p>Each category's ratios are summarised by their first quartile, median and third quartile, and each statistic is shrunk toward the matching global one with 8 pseudo-rows of weight: fitted = (n &times; own + 8 &times; global) / (n + 8). A category with no usable ratio takes the global fit outright. The median prices the central value; the quartiles bound the range the board quotes — the honest answer to peers that price anywhere from 0.05x to 1.06x inside the middle half.</p>
+      </section>
+      <section class="mcard">
+        <h3>3 · Momentum that a freak week cannot bend</h3>
+        <p>momentum = 1 + 0.6 &times; tanh(change<sub>7d</sub> / 40), bounded in (0.4, 1.6). This snapshot's 7-day changes run from &minus;73% to +4,448% with a median of &minus;8%: a linear factor would hand the top of the board to one inflow spike. The tanh curve is near-linear for ordinary weeks and flat for freak ones. An unreported change scores a neutral 1.</p>
+      </section>
+      <section class="mcard">
+        <h3>4 · Maturity</h3>
+        <p>maturity = 0.45 + 0.55 &times; &radic;(min(age, 1825 days) / 1825). A protocol earns value for having run with no token; the curve is steepest early, when survival is being proven. A protocol with no listing date is read as 365 days old — a stated default, flagged on its card, never hidden.</p>
+      </section>
+      <section class="mcard">
+        <h3>5 · Conviction, kept apart from value</h3>
+        <p>Value says what a launch could be worth; conviction (0&ndash;100) says how good a farm the row is: the category's fitted launch prior &times; 40, TVL scale toward $250M (square-rooted) &times; 20, the clamped 7-day change &times; 15, age inside the 180&ndash;1460-day prime window &times; 15, and chain breadth toward 8 chains &times; 10. Grades run A (70+), B (55+), C (40+), D below. The detail view shows every part, so a grade can be argued with.</p>
+      </section>
+      <section class="mcard">
+        <h3>6 · Who is kept off the board, and why</h3>
+        <p>Token-bearing protocols never appear: they already launched. Neither do wrapped, staked or bridged products of a token that trades, versioned names, or an exchange's own TVL record — the classes that keep WBTC, Binance staked ETH and USDT0 off a board of future launches. What remains is 198 candidates, the 40 watchlist protocols among them, ranked by central implied value with ties broken on TVL then slug, so the board is a pure function of the snapshot.</p>
+      </section>
+    </div>
+    <p class="board-foot">The written analysis — fitted multiples for every category the board prices, the top of the board, and all 40 deep-dives in compact form — ships with this dashboard as analysis.md, generated by the same program from the same data.</p>
   </main>
 </div>
 
